@@ -1,7 +1,5 @@
 # Data files
-data/raw/*.nc
-data/raw/*.zip
-data/test/*.nc
+data
 *.hdf
 *.tif
 
