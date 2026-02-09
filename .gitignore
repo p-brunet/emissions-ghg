@@ -1,0 +1,39 @@
+# Data files
+data/raw/*.nc
+data/raw/*.zip
+data/test/*.nc
+*.hdf
+*.tif
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Environment
+.env
+venv/
+env/
+
+# Airflow
+airflow/logs/
+airflow.db
+airflow.cfg
+
+# DBT
+dbt/target/
+dbt/logs/
+dbt/dbt_packages/
+
+# IDEs
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Credentials
+*credentials*.json
+*.pem
