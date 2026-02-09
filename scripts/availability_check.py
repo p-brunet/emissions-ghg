@@ -1,12 +1,10 @@
 # check availability of data
 
-import requests
+import os
 from datetime import datetime, timedelta
 
-import os
-from pathlib import Path
+import requests
 from dotenv import load_dotenv
-
 
 load_dotenv()
 
@@ -29,7 +27,7 @@ def test_copernicus_auth():
     response = requests.post(token_url, data=data, timeout=30)
     if response.status_code == 200:
         token = response.json()["access_token"]
-        print(f"Copernicus auth successful")
+        print("Copernicus auth successful")
         return token
     else:
         print(f"Auth failed: {response.status_code}")
@@ -49,7 +47,8 @@ def search_sentinel5p(token):
         f"contains(Name,'L2__CH4___') and "
         f"ContentDate/Start gt {date_start.strftime('%Y-%m-%dT%H:%M:%S.000Z')} and "
         f"ContentDate/Start lt {date_end.strftime('%Y-%m-%dT%H:%M:%S.000Z')} and "
-        f"OData.CSC.Intersects(area=geography'SRID=4326;POLYGON((-120 49,-110 49,-110 60,-120 60,-120 49))')"
+        f"OData.CSC.Intersects(area=geography'SRID=4326;POLYGON\
+        ((-120 49,-110 49,-110 60,-120 60,-120 49))')"
     )
 
     params = {"$filter": filter_query, "$top": 5}
