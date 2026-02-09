@@ -11,7 +11,7 @@ __pycache__/
 
 # Environment
 .env
-venv/
+.venv/
 env/
 
 # Airflow
@@ -27,6 +27,9 @@ dbt/dbt_packages/
 # IDEs
 .vscode/
 .idea/
+
+# Format
+.ruff_cache
 
 # OS
 .DS_Store
