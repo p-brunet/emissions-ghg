@@ -83,7 +83,7 @@ docker-compose up -d
 
 ## 📚 Documentation
 
-- [Week 0: Setup & Data Audit](docs/week00_data_audit.md)
+- [Week 0: Setup & Data Audit](docs/week0.md)
 - [Architecture Overview](docs/architecture.md) *(coming soon)*
 
 ## 🎓 Ressources
