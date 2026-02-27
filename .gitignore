@@ -1,5 +1,7 @@
 # Data files
 data
+emissions_ghg.duckdb
+emissions_ghg.duckdb.wal   # Write-Ahead Log
 *.hdf
 *.tif
 
