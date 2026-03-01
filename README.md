@@ -101,7 +101,7 @@ I intend to work through weekly sessions and produce small documentation after e
 ## Documentation
 
 - [Week 0: Setup & Data Audit](docs/week0.md)
-- [Week 0: Setup & Data Audit](docs/week1.md) 
+- [Week 1: Create Tables and BTY Ingestion](docs/week1.md) *(coming soon)*
 - [Architecture Overview](docs/architecture.md) *(coming soon)*
 
 ## Ressources
