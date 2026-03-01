@@ -24,19 +24,34 @@ def create_aer_facilities_table(con) -> Literal[True]:
     con.execute("DROP TABLE IF EXISTS bronze.aer_facilities;")
 
     con.execute("""
-        CREATE TABLE bronze.aer_facilities (
-            row_id BIGINT,                    -- Auto-increment row number
-            facility_id VARCHAR,              -- From CSV (may have duplicates)
-            facility_name VARCHAR,
-            facility_type VARCHAR,
+        CREATE TABLE bronze.aer_battery_monthly (
+            row_id BIGINT,
+
+            -- Identity
+            facility_id VARCHAR,         -- ABBT code
+            licence VARCHAR,
             operator VARCHAR,
-            bty_location VARCHAR,             -- BTY legal land description
-            latitude DOUBLE,                  -- Converted from BTY
-            longitude DOUBLE,                 -- Converted from BTY
-            location GEOMETRY,                -- ST_Point(lon, lat)
-            reported_ch4_tonnes_yr DOUBLE,    -- If available in CSV
-            ingestion_date DATE,              -- When we loaded this
-            source_file VARCHAR               -- Which CSV file
+            facility_type VARCHAR,
+            facility_description VARCHAR,
+
+            -- Time
+            reporting_month DATE,
+            ingestion_date DATE,
+            source_file VARCHAR,
+
+            -- Location
+            bty_location_raw VARCHAR,
+            latitude DOUBLE,
+            longitude DOUBLE,
+            location GEOMETRY,
+
+            -- Monthly Volumes (from CSV)
+            oil_prod_m3 DOUBLE,
+            gas_prod_1000m3 DOUBLE,
+            gas_flared_1000m3 DOUBLE,
+            gas_vented_1000m3 DOUBLE,
+            water_prod_m3 DOUBLE,
+            total_wells INTEGER
         );
     """)
 
