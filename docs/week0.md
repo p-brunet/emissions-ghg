@@ -107,10 +107,10 @@ emissions-ghg/
 - [ ] Read Wu Ch.2 (Coordinate Systems) & Ch.5 (Vector Data)
 
 **Week 1 Goals**:
-- Create `docker-compose.yml` (PostgreSQL/PostGIS, MinIO, Airflow)
+- Create `docker-compose.yml` (MinIO, Airflow)
 - Initialize database with bronze/silver/gold schemas
 - Load 1 test Sentinel-5P file
-- Load AER facilities into PostgreSQL
+- Load AER facilities into DuckDB
 
 ---
 
