@@ -284,7 +284,7 @@ def load_aer_data(csv_path, db_path="./emissions_ghg.duckdb") -> None:
 
 if __name__ == "__main__":
     # Path to your AER CSV file
-    csv_path = "./data/raw/ST60_2024-01.csv"
+    csv_path = "./data/raw/ST60_2025-01.csv"
 
     try:
         success = load_aer_data(csv_path)
