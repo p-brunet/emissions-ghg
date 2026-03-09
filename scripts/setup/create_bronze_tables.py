@@ -21,7 +21,7 @@ def create_aer_facilities_table(con) -> Literal[True]:
     print("Creating bronze.aer_facilities Table")
     print("=" * 60)
 
-    con.execute("DROP TABLE IF EXISTS bronze.aer_facilities;")
+    con.execute("DROP TABLE IF EXISTS bronze.aer_battery_monthly;")
 
     con.execute("""
         CREATE TABLE bronze.aer_battery_monthly (
@@ -55,7 +55,7 @@ def create_aer_facilities_table(con) -> Literal[True]:
         );
     """)
 
-    print("SUCCESS: Table 'bronze.aer_facilities' created (no PK)")
+    print("SUCCESS: Table 'bronze.aer_battery_facilities' created (no PK)")
 
     return True
 
