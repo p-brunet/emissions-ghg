@@ -16,7 +16,9 @@ def test_copernicus_auth():
     username = os.getenv("COPERNICUS_USR")
     password = os.getenv("COPERNICUS_PWD")
 
-    token_url = "https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token"
+    token_url = (
+        "https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token"
+    )
     data = {
         "client_id": "cdse-public",
         "username": username,
