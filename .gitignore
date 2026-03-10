@@ -4,6 +4,7 @@ emissions_ghg.duckdb
 emissions_ghg.duckdb.wal   # Write-Ahead Log
 *.hdf
 *.tif
+outputs/
 
 # Python
 __pycache__/
