@@ -8,8 +8,6 @@
 2. Setup development environment
 3. Initialize GitHub repository
 
----
-
 ## Data Availability Results
 
 ### Sentinel-5P TROPOMI
@@ -40,16 +38,9 @@ https://catalogue.dataspace.copernicus.eu/odata/v1/Products
 - ✅ File: `data/raw/aer_facilities_2024.xlsx`
 - ✅ Coverage: Alberta O&G installations
 
----
-
 ## Environment Setup
 
-**Python**: 3.12 + virtual environment  
-**Dependencies**: 
-```txt
-requests==2.31.0
-python-dotenv==1.0.1
-```
+**Python**: 3.13 + virtual environment  
 
 **Credentials**: `.env` file (gitignored)
 ```bash
@@ -68,11 +59,9 @@ emissions-ghg/
 └── README.md
 ```
 
----
-
 ## Testing Script
 
-**File**: `scripts/test_data_availability.py` (100 lines)
+**File**: `scripts/availability_check.py` (100 lines)
 
 **Tests**:
 1. Copernicus OAuth2 authentication
@@ -86,9 +75,6 @@ emissions-ghg/
 ✅ AER data accessible (checked manually)
 ```
 
----
-
-
 ## Deliverables
 
 - [x] `scripts/test_data_availability.py`
@@ -98,12 +84,9 @@ emissions-ghg/
 - [x] GitHub repo initialized
 - [x] `data/raw/aer_facilities_2024.xlsx`
 
----
-
 ## Next Steps (Week 1)
 
 **Prerequisites**:
-- [ ] Install Docker Desktop
 - [ ] Read Wu Ch.2 (Coordinate Systems) & Ch.5 (Vector Data)
 
 **Week 1 Goals**:
@@ -111,8 +94,6 @@ emissions-ghg/
 - Initialize database with bronze/silver/gold schemas
 - Load 1 test Sentinel-5P file
 - Load AER facilities into DuckDB
-
----
 
 **References**:
 - Copernicus: https://dataspace.copernicus.eu/

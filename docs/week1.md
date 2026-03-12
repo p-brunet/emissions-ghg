@@ -9,11 +9,10 @@
 - Load AER facility data into DuckDB
 
 ## Work Done
-✅ Created docker-compose.yml (MinIO only; Airflow postponed)
-✅ Initialized DuckDB and Iceberg catalog and Bronze schema
-✅ Created Bronze tables: aer_facility table included
-✅ Ingested AER facility data into aer_facility table
-⚠️ Sentinel-5P ingestion still pending (test file not yet loaded)
+✅ Created docker-compose.yml (MinIO only; Airflow postponed) \
+✅ Initialized DuckDB and Iceberg catalog and Bronze schema \
+✅ Created Bronze tables: aer_facility table included \
+✅ Ingested AER facility data into aer_facility table \
 
 ## Notes / Issues
 
@@ -21,6 +20,6 @@
 - Workaround: Avoid introspection queries, use simple SELECT COUNT(*)
 
 ## Next Steps (Week 2)
-Finish Airflow setup and test DAGs
-Load first Sentinel-5P test file into Bronze layer
-Start Silver-layer normalization (facilities + satellite pixels)
+- Finish Airflow setup and test DAGs
+- Load first Sentinel-5P test file into Bronze layer
+- Start Silver-layer normalization (facilities + satellite pixels)
