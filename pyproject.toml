@@ -10,3 +10,11 @@ ignore = []
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
+
+[project]
+name = "emissions-ghg"
+version = "0.0.0"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["config*", "scripts*"]
