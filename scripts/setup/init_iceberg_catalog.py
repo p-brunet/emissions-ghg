@@ -40,6 +40,14 @@ def init_duckdb_iceberg() -> Literal[True]:
         except Exception as e:
             print(f"    WARNING: {ext} failed: {e}")
 
+    # h3 community extension
+    try:
+        con.execute("INSTALL h3 FROM community;")
+        con.execute("LOAD h3;")
+        print("    SUCCESS: h3 loaded")
+    except Exception as e:
+        print(f"INFO: h3 not available on this platform ({e})")
+
     print("DONE: Extensions installed")
 
     # Configure S3 (MinIO) credentials
