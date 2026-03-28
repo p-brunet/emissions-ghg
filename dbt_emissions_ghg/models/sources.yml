@@ -1,0 +1,12 @@
+version: 2
+
+sources:
+  - name: bronze
+    description: "Raw data (Bronze layer)"
+    schema: bronze
+    tables:
+      - name: sentinel5p_raw
+        description: "Sentinel-5P CH4 measurements"
+        
+      - name: aer_battery_monthly
+        description: "AER facility production data"
