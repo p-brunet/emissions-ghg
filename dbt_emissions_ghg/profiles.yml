@@ -4,5 +4,5 @@ dbt_emissions_ghg:
     dev:
       type: duckdb
       path: ../emissions_ghg.duckdb
-      schema: silver
+      schema: main
       threads: 4

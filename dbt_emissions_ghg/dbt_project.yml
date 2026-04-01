@@ -18,6 +18,7 @@ clean-targets:
 models:
   dbt_emissions_ghg:
     +pre-hook:
+      - "INSTALL h3 FROM community"
       - "LOAD h3"
     silver:
       +materialized: table
