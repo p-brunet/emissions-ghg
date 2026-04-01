@@ -28,7 +28,7 @@ def load_to_bronze() -> None:
             ROW_NUMBER() OVER () + ? AS row_id,
             time::TIMESTAMP AS measurement_timestamp,
             ch4::DOUBLE AS ch4_column,
-            NULL::DOUBLE AS ch4_column_precision,
+            ch4_precision::DOUBLE AS ch4_column_precision,
             qa::DOUBLE AS qa_value,
             lat::DOUBLE AS latitude,
             lon::DOUBLE AS longitude,
@@ -39,6 +39,9 @@ def load_to_bronze() -> None:
             source_file::VARCHAR AS file_path,
             CURRENT_TIMESTAMP AS ingestion_timestamp
         FROM read_parquet(?)
+        WHERE source_file NOT IN (
+            SELECT DISTINCT file_path FROM bronze.sentinel5p_raw
+        )
         """,
         [existing, str(PARQUET_FILE)],
     )
