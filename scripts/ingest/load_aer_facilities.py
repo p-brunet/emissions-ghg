@@ -1,6 +1,7 @@
 import math
 import os
 import re
+import sys
 from datetime import datetime
 
 import duckdb
@@ -224,15 +225,6 @@ def load_aer_data(csv_path, db_path="./emissions_ghg.duckdb") -> None:
     df["latitude"] = df["latitude"].astype(float)
     df["longitude"] = df["longitude"].astype(float)
 
-    print("\n=== Converting 'str' dtype to 'object' for DuckDB compatibility ===")
-    for col in df.columns:
-        if df[col].dtype == "str":
-            df[col] = df[col].astype("object")
-            print(f"  - Converted {col}: str to object")
-
-    # Verify
-    print("\n=== Final dtypes (should be no 'str') ===")
-    print(df.dtypes)
     con = duckdb.connect(db_path)
     con.execute("LOAD spatial;")
 
@@ -279,7 +271,7 @@ def load_aer_data(csv_path, db_path="./emissions_ghg.duckdb") -> None:
     print(f"Inserted {count} records for {reporting_month}")
 
     con.close()
-    return
+    return True
 
 
 if __name__ == "__main__":
@@ -288,10 +280,10 @@ if __name__ == "__main__":
 
     try:
         success = load_aer_data(csv_path)
-        exit(0 if success else 1)
+        sys.exit(0 if success else 1)
     except Exception as e:
         print(f"\nERROR: {e}")
         import traceback
 
         traceback.print_exc()
-        exit(1)
+        sys.exit(1)
