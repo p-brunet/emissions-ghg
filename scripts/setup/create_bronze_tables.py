@@ -4,7 +4,7 @@ Bronze = raw data, no constraints, append-only
 """
 
 import os
-from typing import Literal
+import sys
 
 import duckdb
 from dotenv import load_dotenv
@@ -12,19 +12,17 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-def create_aer_facilities_table(con) -> Literal[True]:
+def create_aer_facilities_table(con) -> None:
     """
-    Create bronze.aer_facilities table
+    Create bronze.aer_facilities table if it does not exist.
     NO PRIMARY KEY - we accept duplicates/errors in Bronze
     """
     print("\n" + "=" * 60)
-    print("Creating bronze.aer_facilities Table")
+    print("Creating bronze.aer_battery_monthly Table")
     print("=" * 60)
 
-    con.execute("DROP TABLE IF EXISTS bronze.aer_battery_monthly;")
-
     con.execute("""
-        CREATE TABLE bronze.aer_battery_monthly (
+        CREATE TABLE IF NOT EXISTS bronze.aer_battery_monthly (
             row_id BIGINT,
 
             -- Identity
@@ -55,25 +53,21 @@ def create_aer_facilities_table(con) -> Literal[True]:
         );
     """)
 
-    print("SUCCESS: Table 'bronze.aer_battery_facilities' created (no PK)")
-
-    return True
+    print("SUCCESS: Table 'bronze.aer_battery_monthly' created (no PK)")
 
 
-def create_sentinel5p_table(con) -> Literal[True]:
+def create_sentinel5p_table(con) -> None:
     """
-    Create bronze.sentinel5p_raw table
+    Create bronze.sentinel5p_raw table if it does not exist.
     NO PRIMARY KEY - raw pixels from NetCDF
     """
     print("\n" + "=" * 60)
     print("Creating bronze.sentinel5p_raw Table")
     print("=" * 60)
 
-    con.execute("DROP TABLE IF EXISTS bronze.sentinel5p_raw;")
-
     con.execute("""
-        CREATE TABLE bronze.sentinel5p_raw (
-            row_id BIGINT,                    -- Auto-increment
+        CREATE TABLE IF NOT EXISTS bronze.sentinel5p_raw (
+            row_id BIGINT,
             measurement_timestamp TIMESTAMP,   -- From NetCDF time dimension
             ch4_column DOUBLE,                 -- CH4 mixing ratio
             ch4_column_precision DOUBLE,       -- Uncertainty
@@ -90,8 +84,6 @@ def create_sentinel5p_table(con) -> Literal[True]:
     """)
 
     print("SUCCESS: Table 'bronze.sentinel5p_raw' created (no PK)")
-
-    return True
 
 
 def main() -> None:
@@ -125,7 +117,7 @@ def main() -> None:
     """).fetchone()[0]
 
     print(f"Tables in bronze schema: {count}")
-    print("Expected: 2 (aer_facilities, sentinel5p_raw)")
+    print("Expected: 2 (aer_battery_monthly, sentinel5p_raw)")
 
     con.close()
 
@@ -142,4 +134,4 @@ if __name__ == "__main__":
         import traceback
 
         traceback.print_exc()
-        exit(1)
+        sys.exit(1)
