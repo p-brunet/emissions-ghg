@@ -1,10 +1,13 @@
 # check availability of data
 
 import os
+import sys
 from datetime import datetime, timedelta
 
 import requests
 from dotenv import load_dotenv
+
+from config.constants import ALBERTA_BBOX
 
 load_dotenv()
 
@@ -13,8 +16,8 @@ def test_copernicus_auth():
     """
     Check on connection
     """
-    username = os.getenv("COPERNICUS_USR")
-    password = os.getenv("COPERNICUS_PWD")
+    username = os.getenv("COPERNICUS_USERNAME")
+    password = os.getenv("COPERNICUS_PASSWORD")
 
     token_url = (
         "https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token"
@@ -44,13 +47,21 @@ def search_sentinel5p(token):
 
     search_url = "https://catalogue.dataspace.copernicus.eu/odata/v1/Products"
 
+    polygon = (
+        f"POLYGON(("
+        f"{ALBERTA_BBOX['min_lon']} {ALBERTA_BBOX['min_lat']},"
+        f"{ALBERTA_BBOX['max_lon']} {ALBERTA_BBOX['min_lat']},"
+        f"{ALBERTA_BBOX['max_lon']} {ALBERTA_BBOX['max_lat']},"
+        f"{ALBERTA_BBOX['min_lon']} {ALBERTA_BBOX['max_lat']},"
+        f"{ALBERTA_BBOX['min_lon']} {ALBERTA_BBOX['min_lat']}))"
+    )
+
     filter_query = (
         f"Collection/Name eq 'SENTINEL-5P' and "
         f"contains(Name,'L2__CH4___') and "
         f"ContentDate/Start gt {date_start.strftime('%Y-%m-%dT%H:%M:%S.000Z')} and "
         f"ContentDate/Start lt {date_end.strftime('%Y-%m-%dT%H:%M:%S.000Z')} and "
-        f"OData.CSC.Intersects(area=geography'SRID=4326;POLYGON\
-        ((-120 49,-110 49,-110 60,-120 60,-120 49))')"
+        f"OData.CSC.Intersects(area=geography'SRID=4326;{polygon}')"
     )
 
     params = {"$filter": filter_query, "$top": 5}
@@ -75,4 +86,5 @@ if __name__ == "__main__":
 
     if token:
         print("Searching Sentinel-5P products...")
-        search_sentinel5p(token)
+        if not search_sentinel5p(token):
+            sys.exit(1)
