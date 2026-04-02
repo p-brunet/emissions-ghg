@@ -1,10 +1,10 @@
 """
-Initialize DuckDB with Iceberg catalog and spatial extensions
-Creates schemas for medallion architecture (bronze/silver/gold)
+Initialize DuckDB with spatial extensions and medallion architecture schemas
+(bronze/silver/gold)
 """
 
 import os
-from typing import Literal
+import sys
 
 import duckdb
 from dotenv import load_dotenv
@@ -13,15 +13,14 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-def init_duckdb_iceberg() -> Literal[True]:
+def init_duckdb() -> None:
     """
-    Initialize DuckDB with necessary extensions and schemas
+    Initialize DuckDB with necessary extensions and schemas.
     """
     print("=" * 60)
-    print("Initializing DuckDB + Iceberg Catalog")
+    print("Initializing DuckDB")
     print("=" * 60)
 
-    # Connect to DuckDB (creates file if doesn't exist)
     db_path = os.getenv("DUCKDB_DATABASE_PATH", "./emissions_ghg.duckdb")
     print(f"\n Connecting to DuckDB: {db_path}")
     con = duckdb.connect(db_path)
@@ -29,7 +28,7 @@ def init_duckdb_iceberg() -> Literal[True]:
 
     # Install and load extensions
     print("\n Installing DuckDB extensions...")
-    extensions = ["spatial", "httpfs", "aws"]  # ui extension is not working on MacOS ?
+    extensions = ["spatial", "httpfs", "aws"]
 
     for ext in extensions:
         print(f"  - Installing {ext}...")
@@ -50,16 +49,19 @@ def init_duckdb_iceberg() -> Literal[True]:
 
     print("DONE: Extensions installed")
 
-    # Configure S3 (MinIO) credentials
+    # Configure S3 (MinIO) credentials — use individual statements to avoid
+    # multi-statement injection if a value contains a semicolon
     print("\n Configuring MinIO credentials...")
     try:
-        con.execute(f"""
-            SET s3_endpoint = '{os.getenv("MINIO_ENDPOINT")}';
-            SET s3_access_key_id = '{os.getenv("MINIO_ACCESS_KEY")}';
-            SET s3_secret_access_key = '{os.getenv("MINIO_SECRET_KEY")}';
-            SET s3_url_style = 'path';
-            SET s3_use_ssl = false;
-        """)
+        endpoint = os.getenv("MINIO_ENDPOINT", "")
+        access_key = os.getenv("MINIO_ACCESS_KEY", "")
+        secret_key = os.getenv("MINIO_SECRET_KEY", "")
+
+        con.execute("SET s3_endpoint = ?", [endpoint])
+        con.execute("SET s3_access_key_id = ?", [access_key])
+        con.execute("SET s3_secret_access_key = ?", [secret_key])
+        con.execute("SET s3_url_style = 'path'")
+        con.execute("SET s3_use_ssl = false")
         print("DONE: MinIO configured")
     except Exception as e:
         print(f"WARNING: MinIO config: {e}")
@@ -84,7 +86,6 @@ def init_duckdb_iceberg() -> Literal[True]:
         print("SUCCESS: MinIO connection successful")
     except Exception as e:
         print(f"WARNING: MinIO test (expected if no data yet): {str(e)[:100]}...")
-        print("  MinIO is accessible")  # to remove
 
     # Show configuration summary
     print("\n" + "=" * 60)
@@ -99,15 +100,13 @@ def init_duckdb_iceberg() -> Literal[True]:
     print("Initialization complete!")
     print("=" * 60)
 
-    return True
-
 
 if __name__ == "__main__":
     try:
-        init_duckdb_iceberg()
+        init_duckdb()
     except Exception as e:
         print(f"\nERROR: {e}")
         import traceback
 
         traceback.print_exc()
-        exit(1)
+        sys.exit(1)
