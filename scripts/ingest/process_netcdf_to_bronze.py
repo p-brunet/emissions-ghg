@@ -1,108 +1,89 @@
 import re
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import xarray as xr
 
-INPUT_DIR = Path("./data/raw/sentinel5p")
-OUTPUT_FILE = Path("./data/bronze/sentinel5p_ch4.parquet")
+from config.constants import (
+    ALBERTA_BBOX,
+    BRONZE_DATA_DIR,
+    SENTINEL5P_QA_THRESHOLD_BRONZE,
+    SENTINEL5P_RAW_DIR,
+)
 
-QA_THRESHOLD = 0.1
+INPUT_DIR = SENTINEL5P_RAW_DIR
+OUTPUT_FILE = BRONZE_DATA_DIR / "sentinel5p_ch4.parquet"
 
-# Alberta bbox
-MIN_LON, MIN_LAT = -120, 49
-MAX_LON, MAX_LAT = -110, 60
+CH4_VAR = "methane_mixing_ratio_bias_corrected"
+CH4_PRECISION_VAR = "methane_mixing_ratio_bias_corrected_precision"
+
 
 def extract_orbit_from_filename(filename: str) -> int:
     """
-    Extract orbit number from Sentinel-5P filename
+    Extract orbit number from Sentinel-5P filename.
 
     Pattern: S5P_OFFL_L2__CH4____YYYYMMDDTHHMMSS_YYYYMMDDTHHMMSS_ORBIT_...
     Example: S5P_OFFL_L2__CH4____20250714T183522_20250714T201652_36033_03_...
-
-    Returns orbit number (int) or None if not found
     """
-    # Pattern: match 5-6 digit orbit number after two timestamps
-    # S5P_..._STARTTIME_ENDTIME_ORBIT_...
     match = re.search(r'_(\d{8}T\d{6})_(\d{8}T\d{6})_(\d{5,6})_', filename)
-
     if match:
-        orbit = int(match.group(3))
-        return orbit
-
-    # Fallback: try ds.attrs
+        return int(match.group(3))
     return None
 
 
-def extract_file(nc_path: Path) -> pd.DataFrame:
-    ds = xr.open_dataset(nc_path, group="PRODUCT")
+def extract_file(nc_path) -> pd.DataFrame:
+    with xr.open_dataset(nc_path, group="PRODUCT") as ds:
+        if CH4_VAR not in ds:
+            raise ValueError(f"{CH4_VAR} not found in {nc_path.name}")
 
-    ch4_var = "methane_mixing_ratio_bias_corrected"
-    if ch4_var not in ds:
-        raise ValueError(f"{ch4_var} not found in {nc_path.name}")
+        lat = ds["latitude"]
+        lon = ds["longitude"]
 
-    lat = ds["latitude"]
-    lon = ds["longitude"]
+        bbox_mask = (
+            (lat >= ALBERTA_BBOX["min_lat"]) &
+            (lat <= ALBERTA_BBOX["max_lat"]) &
+            (lon >= ALBERTA_BBOX["min_lon"]) &
+            (lon <= ALBERTA_BBOX["max_lon"])
+        )
 
-    bbox_mask = (
-        (lat >= MIN_LAT) &
-        (lat <= MAX_LAT) &
-        (lon >= MIN_LON) &
-        (lon <= MAX_LON)
-    )
-
-    data = xr.Dataset(
-        {
-            "ch4": ds[ch4_var],
+        data = xr.Dataset({
+            "ch4": ds[CH4_VAR],
+            "ch4_precision": ds[CH4_PRECISION_VAR] if CH4_PRECISION_VAR in ds
+                             else xr.full_like(ds[CH4_VAR], fill_value=float("nan")),
             "qa": ds["qa_value"],
             "lat": lat,
             "lon": lon,
-        }
-    )
+        })
 
-    filtered = data.where(bbox_mask, drop=True)
+        filtered = data.where(bbox_mask, drop=True)
+        filtered = filtered.where(
+            (~np.isnan(filtered.ch4)) &
+            (~np.isnan(filtered.lat)) &
+            (~np.isnan(filtered.lon)) &
+            (filtered.qa >= SENTINEL5P_QA_THRESHOLD_BRONZE),
+            drop=True
+        )
 
-    filtered = filtered.where(
-        (~np.isnan(filtered.ch4)) &
-        (~np.isnan(filtered.lat)) &
-        (~np.isnan(filtered.lon)) &
-        (filtered.qa >= QA_THRESHOLD),
-        drop=True
-    )
+        if filtered.ch4.size == 0:
+            return pd.DataFrame()
 
-    if filtered.ch4.size == 0:
-        ds.close()
-        return pd.DataFrame()
+        stacked = filtered.stack(pixel=("time", "scanline", "ground_pixel"))
 
-    stacked = filtered.stack(pixel=("time", "scanline", "ground_pixel"))
+        if stacked.pixel.size == 0:
+            return pd.DataFrame()
 
-    if stacked.pixel.size == 0:
-        ds.close()
-        return pd.DataFrame()
+        df = stacked.to_dataframe().reset_index()
+        # xarray where(drop=True) doesn't fully remove NaN rows after to_dataframe()
+        df = df.dropna(subset=["ch4", "lat", "lon"])
 
-    df = stacked.to_dataframe().reset_index()
-    df = df.dropna()
+        df = df[["time", "lat", "lon", "ch4", "ch4_precision", "qa", "scanline", "ground_pixel"]]
 
-    df = df[[
-        "time",
-        "lat",
-        "lon",
-        "ch4",
-        "qa",
-        "scanline",
-        "ground_pixel"
-    ]]
+        orbit = extract_orbit_from_filename(nc_path.name)
+        if orbit is None:
+            orbit = ds.attrs.get("orbit", None)
 
-    orbit = extract_orbit_from_filename(nc_path.name)
-
-    if orbit is None:
-        orbit = ds.attrs.get("orbit", None)
-
-    df["orbit"] = orbit
-    df["source_file"] = nc_path.name
-
-    ds.close()
+        df["orbit"] = orbit
+        df["source_file"] = nc_path.name
 
     return df
 
@@ -118,10 +99,8 @@ def process_all() -> pd.DataFrame:
     for file in files:
         try:
             df = extract_file(file)
-
             if not df.empty:
                 frames.append(df)
-
         except (OSError, ValueError, KeyError) as e:
             print(f"Skipping {file.name}: {e}")
 
