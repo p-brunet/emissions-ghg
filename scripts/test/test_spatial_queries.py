@@ -1,7 +1,10 @@
 import os
+import sys
 
 import duckdb
 from dotenv import load_dotenv
+
+from config.constants import ALBERTA_BBOX
 
 load_dotenv()
 
@@ -62,7 +65,7 @@ def test_spatial_queries():
     # Validate Alberta bounds
     min_lat = result["min_lat"].iloc[0]
     max_lat = result["max_lat"].iloc[0]
-    if min_lat < 49 or max_lat > 60:
+    if min_lat < ALBERTA_BBOX["min_lat"] or max_lat > ALBERTA_BBOX["max_lat"]:
         print("  WARNING: Some coordinates outside Alberta bounds!")
     else:
         print("  SUCCESS: All coordinates within Alberta bounds")
@@ -146,10 +149,10 @@ def test_spatial_queries():
 if __name__ == "__main__":
     try:
         success = test_spatial_queries()
-        exit(0 if success else 1)
+        sys.exit(0 if success else 1)
     except Exception as e:
         print(f"\nERROR: {e}")
         import traceback
 
         traceback.print_exc()
-        exit(1)
+        sys.exit(1)

@@ -1,8 +1,11 @@
 import os
+import sys
 from datetime import datetime, timedelta
 
 import requests
 from dotenv import load_dotenv
+
+from config.constants import ALBERTA_BBOX
 
 load_dotenv()
 
@@ -43,7 +46,10 @@ class CopernicusDownloader:
 
     def search_products(self, start_date, end_date, bbox=None, max_results=10):
         if bbox is None:
-            bbox = (-120, 49, -110, 60)
+            bbox = (
+                ALBERTA_BBOX["min_lon"], ALBERTA_BBOX["min_lat"],
+                ALBERTA_BBOX["max_lon"], ALBERTA_BBOX["max_lat"],
+            )
 
         filter_parts = [
             "Collection/Name eq 'SENTINEL-5P'",
@@ -158,10 +164,10 @@ def main():
 if __name__ == "__main__":
     try:
         success = main()
-        exit(0 if success else 1)
+        sys.exit(0 if success else 1)
     except Exception as e:
         print(f"FATAL ERROR: {e}")
         import traceback
 
         traceback.print_exc()
-        exit(1)
+        sys.exit(1)
