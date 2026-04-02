@@ -33,7 +33,6 @@ class CopernicusDownloader:
             "grant_type": "password",
         }
 
-
         response = requests.post(self.token_url, data=data, timeout=30)
         response.raise_for_status()
 
@@ -47,8 +46,10 @@ class CopernicusDownloader:
     def search_products(self, start_date, end_date, bbox=None, max_results=10):
         if bbox is None:
             bbox = (
-                ALBERTA_BBOX["min_lon"], ALBERTA_BBOX["min_lat"],
-                ALBERTA_BBOX["max_lon"], ALBERTA_BBOX["max_lat"],
+                ALBERTA_BBOX["min_lon"],
+                ALBERTA_BBOX["min_lat"],
+                ALBERTA_BBOX["max_lon"],
+                ALBERTA_BBOX["max_lat"],
             )
 
         filter_parts = [
@@ -128,9 +129,7 @@ def main():
     search_date = datetime(2025, 7, 14)
 
     products = downloader.search_products(
-        start_date=search_date,
-        end_date=search_date + timedelta(days=1),
-        max_results=20
+        start_date=search_date, end_date=search_date + timedelta(days=1), max_results=20
     )
 
     if not products:
@@ -144,8 +143,7 @@ def main():
 
         try:
             output_path = downloader.download_product(
-                product_id=product['Id'],
-                product_name=product['Name']
+                product_id=product["Id"], product_name=product["Name"]
             )
             downloaded_files.append(output_path)
 

@@ -25,7 +25,7 @@ def extract_orbit_from_filename(filename: str) -> int:
     Pattern: S5P_OFFL_L2__CH4____YYYYMMDDTHHMMSS_YYYYMMDDTHHMMSS_ORBIT_...
     Example: S5P_OFFL_L2__CH4____20250714T183522_20250714T201652_36033_03_...
     """
-    match = re.search(r'_(\d{8}T\d{6})_(\d{8}T\d{6})_(\d{5,6})_', filename)
+    match = re.search(r"_(\d{8}T\d{6})_(\d{8}T\d{6})_(\d{5,6})_", filename)
     if match:
         return int(match.group(3))
     return None
@@ -40,28 +40,31 @@ def extract_file(nc_path) -> pd.DataFrame:
         lon = ds["longitude"]
 
         bbox_mask = (
-            (lat >= ALBERTA_BBOX["min_lat"]) &
-            (lat <= ALBERTA_BBOX["max_lat"]) &
-            (lon >= ALBERTA_BBOX["min_lon"]) &
-            (lon <= ALBERTA_BBOX["max_lon"])
+            (lat >= ALBERTA_BBOX["min_lat"])
+            & (lat <= ALBERTA_BBOX["max_lat"])
+            & (lon >= ALBERTA_BBOX["min_lon"])
+            & (lon <= ALBERTA_BBOX["max_lon"])
         )
 
-        data = xr.Dataset({
-            "ch4": ds[CH4_VAR],
-            "ch4_precision": ds[CH4_PRECISION_VAR] if CH4_PRECISION_VAR in ds
-                             else xr.full_like(ds[CH4_VAR], fill_value=float("nan")),
-            "qa": ds["qa_value"],
-            "lat": lat,
-            "lon": lon,
-        })
+        data = xr.Dataset(
+            {
+                "ch4": ds[CH4_VAR],
+                "ch4_precision": ds[CH4_PRECISION_VAR]
+                if CH4_PRECISION_VAR in ds
+                else xr.full_like(ds[CH4_VAR], fill_value=float("nan")),
+                "qa": ds["qa_value"],
+                "lat": lat,
+                "lon": lon,
+            }
+        )
 
         filtered = data.where(bbox_mask, drop=True)
         filtered = filtered.where(
-            (~np.isnan(filtered.ch4)) &
-            (~np.isnan(filtered.lat)) &
-            (~np.isnan(filtered.lon)) &
-            (filtered.qa >= SENTINEL5P_QA_THRESHOLD_BRONZE),
-            drop=True
+            (~np.isnan(filtered.ch4))
+            & (~np.isnan(filtered.lat))
+            & (~np.isnan(filtered.lon))
+            & (filtered.qa >= SENTINEL5P_QA_THRESHOLD_BRONZE),
+            drop=True,
         )
 
         if filtered.ch4.size == 0:
@@ -119,12 +122,7 @@ def main():
 
     OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
 
-    df.to_parquet(
-        OUTPUT_FILE,
-        engine="pyarrow",
-        compression="zstd",
-        index=False
-    )
+    df.to_parquet(OUTPUT_FILE, engine="pyarrow", compression="zstd", index=False)
 
     print(f"Saved {len(df):,} rows to {OUTPUT_FILE}")
 

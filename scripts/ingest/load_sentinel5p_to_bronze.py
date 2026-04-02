@@ -17,9 +17,7 @@ def load_to_bronze() -> None:
     con = duckdb.connect(DB_PATH)
     con.execute("LOAD spatial")
 
-    existing = con.execute(
-        "SELECT COUNT(*) FROM bronze.sentinel5p_raw"
-    ).fetchone()[0]
+    existing = con.execute("SELECT COUNT(*) FROM bronze.sentinel5p_raw").fetchone()[0]
 
     con.execute(
         """
@@ -46,9 +44,7 @@ def load_to_bronze() -> None:
         [existing, str(PARQUET_FILE)],
     )
 
-    inserted = con.execute(
-        "SELECT COUNT(*) FROM bronze.sentinel5p_raw"
-    ).fetchone()[0] - existing
+    inserted = con.execute("SELECT COUNT(*) FROM bronze.sentinel5p_raw").fetchone()[0] - existing
 
     print(f"Inserted {inserted:,} rows into bronze.sentinel5p_raw")
 
