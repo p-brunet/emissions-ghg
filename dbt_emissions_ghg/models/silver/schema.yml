@@ -1,0 +1,40 @@
+version: 2
+
+models:
+  - name: aer_facilities_cleaned
+    columns:
+      - name: facility_id
+        tests: [not_null, unique]
+      - name: latitude
+        tests: [not_null]
+      - name: longitude
+        tests: [not_null]
+      - name: h3_cell
+        tests: [not_null]
+      - name: latest_report_month
+        tests: [not_null]
+      - name: operator
+        tests: [not_null]
+
+  - name: sentinel5p_ch4_cleaned
+    columns:
+      - name: row_id
+        tests: [not_null, unique]
+      - name: measurement_timestamp
+        tests: [not_null]
+      - name: ch4_column
+        tests: [not_null]
+      - name: qa_value
+        tests: [not_null]
+      - name: latitude
+        tests: [not_null]
+      - name: longitude
+        tests: [not_null]
+      - name: h3_cell
+        tests: [not_null]
+      - name: measurement_date
+        tests: [not_null]
+      - name: measurement_hour
+        tests:
+          - accepted_values:
+              values: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23]
