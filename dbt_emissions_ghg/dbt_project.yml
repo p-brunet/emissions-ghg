@@ -15,6 +15,18 @@ clean-targets:
   - "target"
   - "dbt_packages"
 
+vars:
+  qa_threshold_silver: 0.5
+  qa_threshold_gold: 0.7
+  ch4_min_valid: 1700
+  ch4_max_valid: 2100
+  alberta_min_lat: 49
+  alberta_max_lat: 60
+  alberta_min_lon: -120
+  alberta_max_lon: -110
+  h3_resolution: 6
+  min_pixels_per_cell: 5
+
 models:
   dbt_emissions_ghg:
     +pre-hook:
