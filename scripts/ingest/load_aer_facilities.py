@@ -186,8 +186,6 @@ def load_aer_data(csv_path, db_path="./emissions_ghg.duckdb") -> None:
     df["ingestion_date"] = datetime.now().date()
     df["source_file"] = os.path.basename(csv_path)
 
-    df["row_id"] = range(1, len(df) + 1)
-
     # Rename columns to normalized schema
     df = df.rename(
         columns={
@@ -227,6 +225,22 @@ def load_aer_data(csv_path, db_path="./emissions_ghg.duckdb") -> None:
 
     con = duckdb.connect(db_path)
     con.execute("LOAD spatial;")
+
+    source_file_name = os.path.basename(csv_path)
+    already_loaded = con.execute(
+        "SELECT COUNT(*) FROM bronze.aer_battery_monthly WHERE source_file = ?",
+        [source_file_name],
+    ).fetchone()[0]
+
+    if already_loaded > 0:
+        print(f"Already loaded: {source_file_name} ({already_loaded} rows). Skipping.")
+        con.close()
+        return False
+
+    max_row_id = con.execute(
+        "SELECT COALESCE(MAX(row_id), 0) FROM bronze.aer_battery_monthly"
+    ).fetchone()[0]
+    df["row_id"] = range(max_row_id + 1, max_row_id + len(df) + 1)
 
     con.register("df_aer", df)
 
