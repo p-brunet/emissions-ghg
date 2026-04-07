@@ -16,5 +16,5 @@ SELECT
     COUNT(DISTINCT measurement_date)      AS observation_days
 FROM {{ ref('sentinel5p_ch4_cleaned') }}
 GROUP BY h3_cell
-HAVING COUNT(*) >= 5
+HAVING COUNT(*) >= {{ var('min_pixels_per_cell') }}
 ORDER BY avg_ch4 DESC

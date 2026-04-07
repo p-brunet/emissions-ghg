@@ -1,0 +1,29 @@
+version: 2
+
+models:
+  - name: facility_emissions_correlation
+    columns:
+      - name: facility_id
+        tests: [not_null, unique]
+      - name: h3_cell
+        tests: [not_null]
+      - name: total_emissions_1000m3
+        tests: [not_null]
+
+  - name: regional_ch4_hotspots
+    columns:
+      - name: h3_cell
+        tests: [not_null, unique]
+      - name: pixel_count
+        tests: [not_null]
+      - name: avg_ch4
+        tests: [not_null]
+
+  - name: temporal_ch4_trends
+    columns:
+      - name: measurement_date
+        tests: [not_null]
+      - name: h3_cell
+        tests: [not_null]
+      - name: daily_avg_ch4
+        tests: [not_null]
