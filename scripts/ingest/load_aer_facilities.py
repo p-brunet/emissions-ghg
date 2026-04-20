@@ -224,7 +224,7 @@ def load_aer_data(csv_path, db_path="./emissions_ghg.duckdb") -> None:
     df["longitude"] = df["longitude"].astype(float)
 
     con = duckdb.connect(db_path)
-    con.execute("LOAD spatial;")
+    con.execute("INSTALL spatial; LOAD spatial;")
 
     source_file_name = os.path.basename(csv_path)
     already_loaded = con.execute(

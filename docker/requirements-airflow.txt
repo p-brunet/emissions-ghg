@@ -1,0 +1,11 @@
+dbt-core==1.11.7
+dbt-duckdb==1.8.2
+duckdb==1.5.0
+h3>=4.0
+h5netcdf>=1.0
+netCDF4>=1.6
+pandas>=2.0,<3.0
+pyarrow>=11.0
+python-dotenv>=1.0
+requests>=2.28
+xarray>=2024.0

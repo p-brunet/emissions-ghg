@@ -1,11 +1,12 @@
 import os
 import sys
+import time
 from datetime import datetime, timedelta
 
 import requests
 from dotenv import load_dotenv
 
-from config.constants import ALBERTA_BBOX
+from config.constants import ALBERTA_BBOX, SENTINEL5P_RAW_DIR
 
 load_dotenv()
 
@@ -33,7 +34,14 @@ class CopernicusDownloader:
             "grant_type": "password",
         }
 
-        response = requests.post(self.token_url, data=data, timeout=30)
+        for attempt in range(4):
+            response = requests.post(self.token_url, data=data, timeout=30)
+            if response.status_code != 429 and response.status_code < 500:
+                break
+            wait = 2 ** attempt * 5
+            print(f"Token request failed ({response.status_code}), retrying in {wait}s...")
+            time.sleep(wait)
+
         response.raise_for_status()
 
         token_data = response.json()
@@ -88,7 +96,9 @@ class CopernicusDownloader:
 
         return products
 
-    def download_product(self, product_id, product_name, output_dir="./data/raw/sentinel5p"):
+    def download_product(self, product_id, product_name, output_dir=None):
+        if output_dir is None:
+            output_dir = str(SENTINEL5P_RAW_DIR)
         os.makedirs(output_dir, exist_ok=True)
         output_path = os.path.join(output_dir, product_name)
 
@@ -121,15 +131,18 @@ class CopernicusDownloader:
         return output_path
 
 
-def main():
+def main(start_date: datetime = None, end_date: datetime = None):
     print("Sentinel-5P Downloader")
+
+    if start_date is None:
+        start_date = datetime(2025, 7, 14)
+    if end_date is None:
+        end_date = start_date + timedelta(days=1)
 
     downloader = CopernicusDownloader()
 
-    search_date = datetime(2025, 7, 14)
-
     products = downloader.search_products(
-        start_date=search_date, end_date=search_date + timedelta(days=1), max_results=20
+        start_date=start_date, end_date=end_date, max_results=50
     )
 
     if not products:

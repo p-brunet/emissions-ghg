@@ -1,4 +1,25 @@
-version: '3.8'
+x-airflow-common: &airflow-common
+  build:
+    context: .
+    dockerfile: Dockerfile.airflow
+  env_file:
+    - ../.env
+  environment:
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+    AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+    AIRFLOW__CORE__FERNET_KEY: 'ZmDfcTF7_60GrrY167zsiPd67pEvs0aGOv2oasOM1Pg='
+    AIRFLOW__WEBSERVER__SECRET_KEY: 'ghg-emissions-secret'
+    DUCKDB_DATABASE_PATH: /opt/airflow/project/emissions_ghg.duckdb
+  volumes:
+    - ../:/opt/airflow/project
+    - ../airflow/dags:/opt/airflow/dags
+    - ../airflow/logs:/opt/airflow/logs
+  networks:
+    - ghg-network
+  depends_on:
+    postgres:
+      condition: service_healthy
 
 services:
   # MinIO - S3-compatible storage for Iceberg tables
@@ -40,8 +61,55 @@ services:
     networks:
       - ghg-network
 
+  # PostgreSQL - Airflow metadata database
+  postgres:
+    image: postgres:15
+    container_name: postgres
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ghg-network
+
+  # One-time Airflow DB init + admin user creation
+  airflow-init:
+    <<: *airflow-common
+    container_name: airflow-init
+    command: >
+      bash -c "airflow db migrate &&
+               airflow users create --username admin --password admin
+                 --firstname GHG --lastname Admin
+                 --role Admin --email admin@ghg.local"
+    restart: "no"
+
+  # Airflow web UI
+  airflow-webserver:
+    <<: *airflow-common
+    container_name: airflow-webserver
+    command: webserver
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+  # Airflow task scheduler
+  airflow-scheduler:
+    <<: *airflow-common
+    container_name: airflow-scheduler
+    command: scheduler
+    restart: unless-stopped
+
 volumes:
   minio-data:
+    driver: local
+  postgres-data:
     driver: local
 
 networks:

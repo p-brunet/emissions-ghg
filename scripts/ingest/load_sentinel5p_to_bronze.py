@@ -6,8 +6,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-PARQUET_FILE = Path("./data/bronze/sentinel5p_ch4.parquet")
 DB_PATH = os.getenv("DUCKDB_DATABASE_PATH", "./emissions_ghg.duckdb")
+PARQUET_FILE = Path(DB_PATH).parent / "data" / "bronze" / "sentinel5p_ch4.parquet"
 
 
 def load_to_bronze() -> None:
@@ -15,7 +15,7 @@ def load_to_bronze() -> None:
         raise FileNotFoundError(f"Parquet file not found: {PARQUET_FILE}")
 
     con = duckdb.connect(DB_PATH)
-    con.execute("LOAD spatial")
+    con.execute("INSTALL spatial; LOAD spatial")
 
     existing = con.execute("SELECT COUNT(*) FROM bronze.sentinel5p_raw").fetchone()[0]
 
