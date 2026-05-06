@@ -1,8 +1,11 @@
+import os
 import re
 
+import duckdb
 import numpy as np
 import pandas as pd
 import xarray as xr
+from dotenv import load_dotenv
 
 from config.constants import (
     ALBERTA_BBOX,
@@ -11,8 +14,11 @@ from config.constants import (
     SENTINEL5P_RAW_DIR,
 )
 
+load_dotenv()
+
 INPUT_DIR = SENTINEL5P_RAW_DIR
 OUTPUT_FILE = BRONZE_DATA_DIR / "sentinel5p_ch4.parquet"
+DB_PATH = os.getenv("DUCKDB_DATABASE_PATH", "./emissions_ghg.duckdb")
 
 CH4_VAR = "methane_mixing_ratio_bias_corrected"
 CH4_PRECISION_VAR = "methane_mixing_ratio_bias_corrected_precision"
@@ -91,11 +97,23 @@ def extract_file(nc_path) -> pd.DataFrame:
     return df
 
 
+def get_already_loaded_files() -> set:
+    try:
+        con = duckdb.connect(DB_PATH, read_only=True)
+        rows = con.execute("SELECT DISTINCT file_path FROM bronze.sentinel5p_raw").fetchall()
+        con.close()
+        return {r[0] for r in rows}
+    except Exception:
+        return set()
+
+
 def process_all() -> pd.DataFrame:
-    files = sorted(INPUT_DIR.glob("*.nc"))
+    already_loaded = get_already_loaded_files()
+    files = [f for f in sorted(INPUT_DIR.glob("*.nc")) if f.name not in already_loaded]
 
     if not files:
-        raise FileNotFoundError(f"No NetCDF files in {INPUT_DIR}")
+        print("No new NetCDF files to process — all already loaded in bronze.")
+        return pd.DataFrame()
 
     frames = []
 

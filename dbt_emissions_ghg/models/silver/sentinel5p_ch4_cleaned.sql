@@ -1,10 +1,11 @@
 {{
     config(
-        materialized='table'
+        materialized='incremental',
+        unique_key='row_id'
     )
 }}
 
-SELECT 
+SELECT
     row_id,
     measurement_timestamp,
     ch4_column,
@@ -21,3 +22,6 @@ WHERE qa_value >= {{ var('qa_threshold_silver') }}
   AND ch4_column BETWEEN {{ var('ch4_min_valid') }} AND {{ var('ch4_max_valid') }}
   AND latitude IS NOT NULL
   AND longitude IS NOT NULL
+{% if is_incremental() %}
+  AND measurement_timestamp > (SELECT MAX(measurement_timestamp) FROM {{ this }})
+{% endif %}

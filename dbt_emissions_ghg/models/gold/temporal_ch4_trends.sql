@@ -1,6 +1,7 @@
 {{
     config(
-        materialized='table'
+        materialized='incremental',
+        unique_key=['measurement_date', 'h3_cell']
     )
 }}
 
@@ -17,5 +18,7 @@ SELECT
     MIN(orbit_number)                      AS first_orbit,
     MAX(orbit_number)                      AS last_orbit
 FROM {{ ref('sentinel5p_ch4_cleaned') }}
+{% if is_incremental() %}
+WHERE measurement_date > (SELECT MAX(measurement_date) FROM {{ this }})
+{% endif %}
 GROUP BY measurement_date, h3_cell
-ORDER BY measurement_date, h3_cell
