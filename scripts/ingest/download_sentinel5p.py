@@ -62,7 +62,7 @@ class CopernicusDownloader:
 
         filter_parts = [
             "Collection/Name eq 'SENTINEL-5P'",
-            "contains(Name,'L2__CH4___')",
+            "contains(Name,'OFFL_L2__CH4___')",
             f"ContentDate/Start gt {start_date.strftime('%Y-%m-%dT00:00:00.000Z')}",
             f"ContentDate/Start lt {end_date.strftime('%Y-%m-%dT23:59:59.999Z')}",
         ]
@@ -167,7 +167,7 @@ def main(start_date: datetime = None, end_date: datetime = None):
     downloader = CopernicusDownloader()
 
     products = downloader.search_products(
-        start_date=start_date, end_date=end_date, max_results=150
+        start_date=start_date, end_date=end_date, max_results=500
     )
 
     if not products:
