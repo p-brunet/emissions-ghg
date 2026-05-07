@@ -22,7 +22,7 @@ default_args = {
 
 
 def load_aer_task(**context):
-    exec_date = context["execution_date"]
+    exec_date = context["data_interval_start"]
     csv_name = f"ST60_{exec_date.year}-{exec_date.month:02d}.csv"
     csv_path = PROJECT_ROOT / "data" / "raw" / csv_name
     if not csv_path.exists():
@@ -34,7 +34,7 @@ def load_aer_task(**context):
 
 
 def download_s5p_task(**context):
-    exec_date = context["execution_date"]
+    exec_date = context["data_interval_start"]
     year, month = exec_date.year, exec_date.month
     start = datetime(year, month, 1)
     end = datetime(year, month, calendar.monthrange(year, month)[1])
@@ -59,8 +59,8 @@ with DAG(
     "ghg_pipeline",
     default_args=default_args,
     description="GHG Emissions: Bronze ingestion → dbt Silver/Gold → tests",
-    schedule_interval="@monthly",
-    start_date=datetime(2025, 1, 1),
+    schedule_interval="0 0 7 * *",
+    start_date=datetime(2025, 1, 7),
     catchup=True,
     max_active_runs=1,
     tags=["ghg", "emissions", "dbt"],
