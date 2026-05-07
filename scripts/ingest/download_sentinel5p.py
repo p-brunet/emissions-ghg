@@ -106,29 +106,54 @@ class CopernicusDownloader:
             print(f"File already exists: {output_path}")
             return output_path
 
-        token = self.get_token()
         url = f"{self.download_url}({product_id})/$value"
 
-        headers = {"Authorization": f"Bearer {token}"}
+        for attempt in range(3):
+            try:
+                token = self.get_token()
+                headers = {"Authorization": f"Bearer {token}"}
 
-        response = requests.get(url, headers=headers, stream=True, timeout=300)
-        response.raise_for_status()
+                response = requests.get(url, headers=headers, stream=True, timeout=(30, 120))
+                response.raise_for_status()
 
-        total_size = int(response.headers.get("content-length", 0))
-        downloaded = 0
+                total_size = int(response.headers.get("content-length", 0))
+                downloaded = 0
 
-        with open(output_path, "wb") as f:
-            for chunk in response.iter_content(chunk_size=8192):
-                if chunk:
-                    f.write(chunk)
-                    downloaded += len(chunk)
+                with open(output_path, "wb") as f:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        if chunk:
+                            f.write(chunk)
+                            downloaded += len(chunk)
 
-                    if total_size > 0:
-                        percent = (downloaded / total_size) * 100
-                        print(f"\rProgress: {percent:.1f}%", end="")
+                            if total_size > 0:
+                                percent = (downloaded / total_size) * 100
+                                print(f"\rProgress: {percent:.1f}%", end="")
 
-        print(f"\nDownloaded to {output_path}")
-        return output_path
+                print(f"\nDownloaded to {output_path}")
+                return output_path
+
+            except requests.exceptions.HTTPError as e:
+                if os.path.exists(output_path):
+                    os.remove(output_path)
+                if e.response is not None and e.response.status_code == 401:
+                    self.token = None  # force refresh on next attempt
+                if attempt == 2:
+                    raise
+                wait = 2 ** attempt * 10
+                print(f"\nDownload failed ({e}), retrying in {wait}s...")
+                time.sleep(wait)
+            except (
+                requests.exceptions.Timeout,
+                requests.exceptions.ConnectionError,
+                requests.exceptions.ChunkedEncodingError,
+            ) as e:
+                if os.path.exists(output_path):
+                    os.remove(output_path)
+                if attempt == 2:
+                    raise
+                wait = 2 ** attempt * 10
+                print(f"\nDownload failed ({e}), retrying in {wait}s...")
+                time.sleep(wait)
 
 
 def main(start_date: datetime = None, end_date: datetime = None):
@@ -142,7 +167,7 @@ def main(start_date: datetime = None, end_date: datetime = None):
     downloader = CopernicusDownloader()
 
     products = downloader.search_products(
-        start_date=start_date, end_date=end_date, max_results=50
+        start_date=start_date, end_date=end_date, max_results=150
     )
 
     if not products:
