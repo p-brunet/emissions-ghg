@@ -27,3 +27,23 @@ models:
         tests: [not_null]
       - name: daily_avg_ch4
         tests: [not_null]
+
+  - name: monthly_emissions_correlation
+    columns:
+      - name: facility_id
+        tests: [not_null]
+      - name: reporting_month
+        tests: [not_null]
+      - name: h3_cell
+        tests: [not_null]
+      - name: total_emissions_1000m3
+        tests: [not_null]
+
+  - name: facility_anomaly_flags
+    columns:
+      - name: facility_id
+        tests: [not_null]
+      - name: reporting_month
+        tests: [not_null]
+      - name: ch4_anomaly_score
+        tests: [not_null]
