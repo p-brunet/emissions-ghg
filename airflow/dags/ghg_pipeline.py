@@ -1,3 +1,4 @@
+import subprocess
 import sys
 import calendar
 from pathlib import Path
@@ -5,6 +6,7 @@ from datetime import datetime, timedelta
 
 PROJECT_ROOT = Path("/opt/airflow/project")
 sys.path.insert(0, str(PROJECT_ROOT))
+PYICEBERG_PYTHON = "/home/airflow/pyiceberg-env/bin/python"
 
 from airflow import DAG
 from airflow.operators.python import PythonOperator
@@ -19,6 +21,18 @@ default_args = {
     "retry_delay": timedelta(minutes=5),
     "email_on_failure": False,
 }
+
+
+def init_bronze_schema_fn(**context):
+    """Ensure Iceberg catalog, bronze tables, and DuckDB view are initialised."""
+    subprocess.run(
+        [PYICEBERG_PYTHON, str(PROJECT_ROOT / "scripts/setup/init_iceberg_catalog.py")],
+        check=True, cwd=str(PROJECT_ROOT),
+    )
+    subprocess.run(
+        [PYICEBERG_PYTHON, str(PROJECT_ROOT / "scripts/setup/create_bronze_tables.py")],
+        check=True, cwd=str(PROJECT_ROOT),
+    )
 
 
 def load_aer_task(**context):
@@ -50,9 +64,10 @@ def process_netcdf_task(**context):
 
 
 def load_s5p_task(**context):
-    from scripts.ingest.load_sentinel5p_to_bronze import load_to_bronze
-
-    load_to_bronze()
+    subprocess.run(
+        [PYICEBERG_PYTHON, str(PROJECT_ROOT / "scripts/ingest/load_sentinel5p_to_bronze.py")],
+        check=True, cwd=str(PROJECT_ROOT),
+    )
 
 
 with DAG(
@@ -65,6 +80,12 @@ with DAG(
     max_active_runs=1,
     tags=["ghg", "emissions", "dbt"],
 ) as dag:
+    init_schema = PythonOperator(
+        task_id="init_bronze_schema",
+        python_callable=init_bronze_schema_fn,
+        pool="duckdb_pool",
+    )
+
     load_aer = PythonOperator(
         task_id="load_aer_bronze",
         python_callable=load_aer_task,
@@ -102,5 +123,6 @@ with DAG(
         pool="duckdb_pool",
     )
 
+    init_schema >> [load_aer, download_s5p]
     download_s5p >> process_s5p
     [load_aer, process_s5p] >> load_s5p >> dbt_run >> dbt_test
