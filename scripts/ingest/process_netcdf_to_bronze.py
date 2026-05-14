@@ -100,7 +100,9 @@ def extract_file(nc_path) -> pd.DataFrame:
 def get_already_loaded_files() -> set:
     try:
         con = duckdb.connect(DB_PATH, read_only=True)
-        rows = con.execute("SELECT DISTINCT file_path FROM bronze.sentinel5p_raw").fetchall()
+        rows = con.execute(
+            "SELECT DISTINCT file_path FROM bronze.ingestion_log"
+        ).fetchall()
         con.close()
         return {r[0] for r in rows}
     except Exception:
