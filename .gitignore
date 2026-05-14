@@ -1,9 +1,17 @@
 # Data files
 data
 emissions_ghg.duckdb
-emissions_ghg.duckdb.wal   # Write-Ahead Log
+emissions_ghg.duckdb.wal
+*.duckdb.bak
 *.hdf
 *.tif
+
+# Iceberg catalog (SQLite, session-local — recreated by init_bronze_schema on container restart)
+warehouse/*.db
+warehouse/*.db-journal
+
+# Accidental artifacts
+initialization
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
