@@ -150,6 +150,6 @@ Bronze has only 1,410 pixels for December 2025 (vs ~100K for adjacent months). N
 
 ## Key Learnings
 
-Iceberg's value is not in the write speed — PyArrow parquet would be faster locally. It's in the guarantees: atomic snapshots (no partial reads), time-travel (`AS OF SNAPSHOT`), partition pruning on scan, and format portability (DuckDB, Spark, and Trino can all read the same files). On a 1.2M-row dataset the overhead is invisible. On 100M rows it pays for itself in query pruning.
+Iceberg's value is not in the write speed, PyArrow parquet would be faster locally. It's in the guarantees: atomic snapshots (no partial reads), time-travel (`AS OF SNAPSHOT`), partition pruning on scan, and format portability (DuckDB, Spark, and Trino can all read the same files). On a 1.2M-row dataset the overhead is invisible. On 100M rows it pays for itself in query pruning.
 
 The DuckDB VIEW over `iceberg_scan()` is transparent to dbt. Silver and gold models read from `bronze.sentinel5p_raw` exactly as before — the only change is that the data now lives on MinIO instead of in the local DuckDB file. This is the architecture described from week 1; week 5 is the first time it actually runs.
