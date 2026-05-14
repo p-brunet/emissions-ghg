@@ -1,120 +1,174 @@
 # GHG Emissions Analysis Pipeline
-Medallion Architecture for Methane Attribution
+Medallion Architecture for Methane Attribution — Alberta, Canada
 
 ## Overview
 
-This project develops a geospatial data pipeline for analyzing methane emissions over Alberta, Canada, by integrating satellite observations with regulatory facility data.
-Atmospheric methane column concentrations are derived from Sentinel-5P (TROPOMI). These observations are contextualized using facility-level operational data published by the Alberta Energy Regulator (AER). \
-The objective is not to directly measure emissions at facility level, but to compare atmospheric methane enhancements with reported gas handling activity in order to identify spatial and temporal inconsistencies.
-The system follows a Bronze / Silver / Gold medallion architecture implemented using DuckDB and Apache Iceberg.
+This project builds a geospatial data pipeline that cross-references satellite methane observations with regulatory oil & gas facility data to detect atmospheric anomalies inconsistent with declared emissions.
 
-## Objectives
+Satellite column concentrations (Sentinel-5P / TROPOMI) are spatially joined with AER monthly battery reports using the H3 hexagonal grid (resolution 6, ~36 km² per cell). The goal is not to measure facility-level emissions directly — resolution is too coarse for that — but to flag cells where the satellite signal is statistically inconsistent with what operators declared to the regulator.
 
-The project demonstrates:
-- A layered medallion data architecture
-- Ingestion of satellite remote sensing products (Sentinel-5P CH₄)
-- Integration of regulatory oil and gas facility data
-- Geospatial analytics using DuckDB spatial extensions
-- Table versioning and partitioning with Apache Iceberg
-- Workflow orchestration with Airflow
-- Reproducible transformations with dbt
-- Monitoring and operational visibility
+The pipeline runs end-to-end in Docker: Airflow orchestrates ingestion, dbt handles all transformations, DuckDB is the query engine, and raw satellite data lands in Apache Iceberg on MinIO.
 
-## Data Sources
+---
 
-### Sentinel-5P (TROPOMI)
-Source: European Space Agency \
-Product: Methane (CH₄) column concentration \
-Resolution: ~7 × 7 km \
-Temporal resolution: Daily \
-Spatial coverage: Alberta, Canada 
+## Results
 
-### Alberta Energy Regulator (AER)
-Source: Alberta Energy Regulator statistical reports \
-Content: Monthly battery-level volumetric reporting \
-Includes:
-- Gas production
-- Gas flared
-- Gas vented
-- Oil production
-- Water production
-- Operator information
-- Legal land location (ATS)
-Each record represents one battery facility for one reporting month.
+- **17 months** of Sentinel-5P CH₄ data ingested (Jan 2025 → May 2026), 1,394,442 raw pixels
+- **707,218 silver pixels** after QA ≥ 0.5 filter and valid CH₄ range [1700–2100 ppb]
+- **9,945 AER facilities** across 14 reporting months (Jan 2025 → Feb 2026)
+- **73,908 facility-month pairs** with matching satellite coverage
+- **340 anomaly flags** across 3 types:
+  - `HIGH_CH4_LOW_REPORTED` — 146 pairs: satellite elevated, declared volumes below facility P25
+  - `HIGH_CH4_HIGH_REPORTED` — 155 pairs: both satellite and declared volumes elevated
+  - `LOW_CH4_HIGH_REPORTED` — 39 pairs: declared volumes high, satellite quiet
+
+Key finding: no strong linear correlation between reported AER volumes and satellite CH₄ at H3 resolution 6. This is expected — cells cover ~36 km² and often contain 5–47 facilities whose combined signal cannot be attributed to individual operators without wind dispersion modelling.
+
+---
 
 ## Architecture
 
-### Bronze Layer
-Raw structured ingest with minimal transformation:
-- Sentinel-5P swath products
-- AER monthly battery data
-- ATS → latitude/longitude conversion
-- Ingestion metadata
-Stored as Iceberg tables queried through DuckDB.
+```
+Sentinel-5P NetCDF          AER Monthly CSV
+(ESA Copernicus API)        (AER Public Reports)
+        │                          │
+        ▼                          ▼
+  Bronze Layer (Iceberg/MinIO)    Bronze Layer (DuckDB)
+  sentinel5p_raw                  aer_battery_monthly
+  1.4M rows, partitioned          ingestion_log
+  by measurement_month
+        │                          │
+        └──────────┬───────────────┘
+                   │  dbt (silver)
+                   ▼
+         Silver Layer (DuckDB)
+         sentinel5p_ch4_cleaned   ← QA filter, H3 assignment
+         aer_facilities_cleaned   ← dedup, geocode
+         aer_facilities_monthly   ← monthly fact table
+                   │
+                   │  dbt (gold)
+                   ▼
+          Gold Layer (DuckDB)
+          monthly_emissions_correlation   ← satellite × AER join per H3 cell × month
+          facility_anomaly_flags          ← z-score anomaly detection
+```
 
-### Silver Layer
-Cleaned and standardized datasets:
-- Unique facility dimension table
-- Monthly battery fact table
-- Satellite observations reprojected and quality filtered
-- Pixel-level facility aggregation
+### Storage split
 
-### Gold Layer
-Analytical outputs:
-TODO
+| Layer | Engine | Location |
+|---|---|---|
+| `bronze.sentinel5p_raw` | Apache Iceberg | MinIO `s3://ghg-warehouse/` |
+| `bronze.aer_battery_monthly` | DuckDB table | `emissions_ghg.duckdb` |
+| Silver + Gold | DuckDB tables | `emissions_ghg.duckdb` |
+
+Only the satellite bronze layer uses Iceberg — it's the only dataset large enough to benefit from partition pruning and snapshot isolation.
+
+---
 
 ## Technology Stack
 
-- Query Engine: DuckDB
-- Table Format: Apache Iceberg
-- Orchestration: Apache Airflow
-- Transformations: dbt
-- Storage: S3-compatible object storage
-- Language: Python 3.13
-- Spatial Extensions: DuckDB Spatial
+| Component | Tool | Version |
+|---|---|---|
+| Query engine | DuckDB | 1.5.0 |
+| Table format | Apache Iceberg | PyIceberg 0.9.0 |
+| Object storage | MinIO | Latest |
+| Orchestration | Apache Airflow | 2.9.3 |
+| Transformations | dbt-duckdb | 1.8.2 |
+| Spatial indexing | H3 (DuckDB extension) | Resolution 6 |
+| Language | Python | 3.13 |
+| Containerisation | Docker Compose | — |
+
+---
+
+## Airflow DAG
+
+```
+init_bronze_schema
+    ├── load_aer_bronze
+    └── download_sentinel5p → process_netcdf → load_sentinel5p_to_bronze
+                                                          │
+                                               dbt_run_silver_gold → dbt_test
+```
+
+`init_bronze_schema` runs first on every DAG trigger. It re-registers the Iceberg catalog (SQLite-backed, recreated on container restart) and ensures the DuckDB view over `iceberg_scan()` exists before any downstream task reads from bronze.
+
+---
 
 ## Project Structure
+
 ```
-├── airflow/          # DAGs and Airflow configuration
-├── dbt/              # DBT models (bronze/silver/gold)
-├── docker/           # Docker Compose setup
-├── scripts/          # Utility scripts
-│   └── setup/
-│   └── ingestion/
-├── notebooks/        # Exploratory analysis
-└── docs/             # Documentation
+├── airflow/dags/           # ghg_pipeline.py — full DAG definition
+├── config/                 # constants.py — shared paths and thresholds
+├── dbt_emissions_ghg/      # dbt project
+│   ├── models/
+│   │   ├── silver/         # sentinel5p_ch4_cleaned, aer_facilities_*
+│   │   └── gold/           # monthly_emissions_correlation, facility_anomaly_flags
+│   └── profiles.yml        # DuckDB connection + S3 settings
+├── docker/
+│   ├── docker-compose.yml  # Airflow + MinIO + Postgres
+│   ├── Dockerfile.airflow  # pyiceberg venv isolation
+│   └── requirements-airflow.txt
+├── scripts/
+│   ├── setup/              # init_iceberg_catalog.py, create_bronze_tables.py
+│   ├── ingest/             # download_sentinel5p, process_netcdf, load_*
+│   └── visualization/      # visualize_ch4_data.py — 6 plots
+├── outputs/visualizations/ # ch4_heatmap, overlay, scatter, monthly, anomaly_flags
+├── docs/
+│   ├── week0.md … week5.md # Weekly implementation logs
+│   └── architecture.md
+├── warehouse/              # SQLite Iceberg catalog (local, not committed)
+└── emissions_ghg.duckdb    # Main DuckDB file (silver + gold + AER bronze)
 ```
 
-## Project Status
+---
 
-The project is under active development. \
-Current focus:
-- Bronze ingestion pipelines
-- Satellite data ingestion
-- Iceberg table initialization
+## Running Locally
 
-Next phase:
-- Silver-layer normalization
-- Pixel aggregation modeling
+**Prerequisites:** Docker Desktop running
 
-I intend to work through weekly sessions and produce small documentation after each one.
+```bash
+# Start the stack
+docker compose -f docker/docker-compose.yml up -d
+
+# Airflow UI → http://localhost:8080  (admin / admin)
+# MinIO UI  → http://localhost:9001  (minioadmin / minioadmin)
+
+# Trigger the DAG manually from the UI, or:
+docker exec airflow-webserver airflow dags trigger ghg_pipeline
+
+# Run dbt manually (full refresh after bulk ingest)
+cd dbt_emissions_ghg
+dbt run --no-partial-parse --full-refresh --select sentinel5p_ch4_cleaned
+dbt run --no-partial-parse --full-refresh --select monthly_emissions_correlation facility_anomaly_flags
+
+# Generate visualizations (from project root)
+python scripts/visualization/visualize_ch4_data.py
+```
+
+> **Important:** always run Python scripts and dbt from the **project root**, not from inside `dbt_emissions_ghg/`. The DuckDB path is relative (`./emissions_ghg.duckdb`) and resolves differently depending on the working directory.
+
+---
+
+## Known Limitations
+
+- **H3 resolution 6 (~36 km²) is too coarse for facility attribution.** Cells contain 1–47 facilities; satellite signal is a cell-level average.
+- **AER data is self-reported.** `HIGH_CH4_LOW_REPORTED` flags cannot distinguish unreported emissions from neighbouring sources (wetlands, agriculture, other operators).
+- **Winter satellite gaps.** November–January have 3–10× fewer usable pixels due to cloud cover and low solar elevation (QA < 0.5). Z-score baselines are summer-weighted.
+- **Iceberg catalog is session-local.** The SQLite catalog at `./warehouse/iceberg_catalog.db` is recreated by Airflow on container restart. Direct Python calls outside the DAG require the catalog to exist first.
+
+---
 
 ## Documentation
 
 - [Week 0: Setup & Data Audit](docs/week0.md)
-- [Week 1: Create Tables and AER Ingestion Pipeline](docs/week1.md)
-- [Week 2: Sentinel5p Ingestion Pipeline and Visualization validation](docs/week2.md) 
-- [Architecture Overview](docs/architecture.md) *(coming soon)*
+- [Week 1: AER Ingestion Pipeline](docs/week1.md)
+- [Week 2: Sentinel-5P Ingestion & Visualization](docs/week2.md)
+- [Week 3: dbt Silver Models & H3 Spatial Join](docs/week3.md)
+- [Week 4: Gold Models & Anomaly Detection](docs/week4.md)
+- [Week 5: Iceberg Migration, Gold Exploitation & Conclusion](docs/week5.md)
 
-## Ressources
-
-This project follows a structured curriculum integrating:
-- Wu (2024) - *Introduction to GIS Programming*
-- Wu (2024) - *Spatial Data Management with DuckDB*
-- Wherobots - *Geospatial Data Engineering Associate* tutorial
-- And whatever ressources I would find interesting useful to share along the project
-
+---
 
 ## Author
 
-**Paul** - Data Scientist Engineer, specialised in Energy and Geo data
+**Paul** — Data Engineer, specialised in Energy and Geo data
