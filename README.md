@@ -124,7 +124,37 @@ init_bronze_schema
 
 ## Running Locally
 
-**Prerequisites:** Docker Desktop running
+### Prerequisites
+
+**1. Docker Desktop** — must be running before any command below.
+
+**2. Copernicus account** — Sentinel-5P data is downloaded automatically by the pipeline from the [Copernicus Data Space Ecosystem](https://dataspace.copernicus.eu). Create a free account, then set your credentials in `.env`:
+
+```env
+# Copernicus Data Space — https://dataspace.copernicus.eu (free registration)
+COPERNICUS_USERNAME=your@email.com
+COPERNICUS_PASSWORD=yourpassword
+
+# MinIO (default credentials for local Docker stack)
+MINIO_ACCESS_KEY=minioadmin
+MINIO_SECRET_KEY=minioadmin
+MINIO_ENDPOINT=localhost:9000
+
+# Iceberg catalog
+ICEBERG_CATALOG_URI=sqlite:///./warehouse/iceberg_catalog.db
+ICEBERG_WAREHOUSE=s3://ghg-warehouse/
+
+# DuckDB
+DUCKDB_DATABASE_PATH=./emissions_ghg.duckdb
+```
+
+**3. AER data (manual download)** — The Alberta Energy Regulator provides no API. Monthly battery reports must be downloaded manually from:
+
+> **https://www.aer.ca/data-and-performance-reports/statistical-reports/st60**
+
+Download the CSV files for the months you want to analyse (format: `ST60_YYYY-MM.csv`) and place them in `data/raw/`. The `load_aer_bronze` Airflow task picks them up automatically on each DAG run — if a file for the execution month is absent, the task skips without failing.
+
+---
 
 ```bash
 # Start the stack
