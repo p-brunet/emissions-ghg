@@ -2,3 +2,10 @@ FROM apache/airflow:2.9.3
 USER airflow
 COPY requirements-airflow.txt /tmp/requirements-airflow.txt
 RUN pip install --no-cache-dir -r /tmp/requirements-airflow.txt
+RUN python -c "import duckdb; con = duckdb.connect(); con.execute('INSTALL spatial; INSTALL httpfs; INSTALL iceberg; INSTALL aws')"
+# Separate venv for pyiceberg: needs SQLAlchemy 2.x which is incompatible with Airflow 2.9
+RUN python -m venv /home/airflow/pyiceberg-env && \
+    /home/airflow/pyiceberg-env/bin/pip install --no-cache-dir \
+        "pyiceberg[s3fs]==0.9.0" "sqlalchemy>=2.0" \
+        "pyarrow>=11.0" "python-dotenv>=1.0" "pandas>=2.0,<3.0" \
+        "duckdb==1.5.0"

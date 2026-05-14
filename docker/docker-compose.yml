@@ -11,6 +11,7 @@ x-airflow-common: &airflow-common
     AIRFLOW__CORE__FERNET_KEY: 'ZmDfcTF7_60GrrY167zsiPd67pEvs0aGOv2oasOM1Pg='
     AIRFLOW__WEBSERVER__SECRET_KEY: 'ghg-emissions-secret'
     DUCKDB_DATABASE_PATH: /opt/airflow/project/emissions_ghg.duckdb
+    MINIO_ENDPOINT: minio:9000
   volumes:
     - ../:/opt/airflow/project
     - ../airflow/dags:/opt/airflow/dags
