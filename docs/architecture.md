@@ -2,15 +2,15 @@
 
 ## Stack
 
-| Component | Tool |
-|-----------|------|
-| Orchestration | Apache Airflow (`0 0 7 * *` — 7th of each month) |
-| Query engine | DuckDB |
-| Transformations | dbt-duckdb |
-| Table format | Apache Iceberg (target for Bronze) |
-| Object storage | MinIO (S3-compatible) |
-| Spatial indexing | H3 resolution 6 (~36 km² cells) |
-| Infrastructure | Docker Compose |
+| Component | Tool | Version |
+|-----------|------|---------|
+| Orchestration | Apache Airflow (`0 0 7 * *` — 7th of each month) | 2.9.3 |
+| Query engine | DuckDB | 1.5.0 |
+| Transformations | dbt-duckdb | 1.8.2 |
+| Table format | Apache Iceberg — bronze satellite layer | PyIceberg 0.9.0 |
+| Object storage | MinIO (S3-compatible) | — |
+| Spatial indexing | H3 resolution 6 (~36 km² cells) | — |
+| Infrastructure | Docker Compose | — |
 
 ---
 
@@ -22,20 +22,28 @@ Sentinel-5P L2 NetCDF       ST60_YYYY-MM.csv
         │                           │
         ▼                           ▼
   download + process            load CSV
-  NetCDF → Parquet → DuckDB    CSV → DuckDB
+  NetCDF → PyArrow               CSV → DuckDB
+        │                           │
+        ▼                           │
+  Iceberg append (MinIO)            │
+  s3://ghg-warehouse/               │
+  bronze/sentinel5p_raw/            │
+        │                           │
+  DuckDB VIEW over iceberg_scan()   │
         │                           │
         └──────────┬────────────────┘
                    ▼
               BRONZE
-   sentinel5p_raw          aer_battery_monthly
-   ~1.2M rows, 16 months   facilities × 16 months
+   sentinel5p_raw (VIEW → Iceberg)   aer_battery_monthly (DuckDB table)
+   1.4M rows, 17 months              ~8,400 facilities × 14 months
+   partitioned by measurement_month  ingestion_log (DuckDB table)
                    │
                 dbt run
                    │
                    ▼
               SILVER
-   sentinel5p_ch4_cleaned     QA ≥ 0.5, incremental
-   aer_facilities_cleaned     latest month per facility (dimension)
+   sentinel5p_ch4_cleaned     QA ≥ 0.5, H3 assignment, incremental
+   aer_facilities_cleaned     latest location per facility (dimension)
    aer_facilities_monthly     all months per facility (fact)
                    │
                 dbt run
@@ -45,8 +53,8 @@ Sentinel-5P L2 NetCDF       ST60_YYYY-MM.csv
    regional_ch4_hotspots          h3_cell aggregates (all-time)
    temporal_ch4_trends            daily CH4 per h3_cell
    facility_emissions_correlation facility × satellite (all-time)
-   monthly_emissions_correlation  facility × month, aligned AER + satellite
-   facility_anomaly_flags         inconsistency flags
+   monthly_emissions_correlation  facility × month — 116K rows, 73K with satellite
+   facility_anomaly_flags         340 inconsistency flags across 3 types
 ```
 
 ---
@@ -57,35 +65,44 @@ Sentinel-5P pixels (~7×7 km) and AER facility GPS points are both mapped to **H
 
 ---
 
-## Iceberg (target)
+## Iceberg
 
-Bronze tables are currently stored in a flat DuckDB file. Target: Iceberg tables on MinIO, partitioned by month.
+`bronze.sentinel5p_raw` is stored as an Apache Iceberg table on MinIO, partitioned by `measurement_month`. The DuckDB file holds only a VIEW over `iceberg_scan()` — silver and gold dbt models read from it transparently.
+
+`bronze.aer_battery_monthly` stays as a plain DuckDB table (small dataset, no benefit from Iceberg overhead).
 
 ```
-s3://ghg-warehouse/bronze/
-├── sentinel5p_raw/measurement_month=2025-01/
-├── sentinel5p_raw/measurement_month=2025-02/
-├── aer_battery_monthly/reporting_month=2025-01/
-└── ...
+s3://ghg-warehouse/
+└── bronze.db/
+    └── sentinel5p_raw/
+        ├── data/
+        │   ├── measurement_month=2025-01/*.parquet
+        │   ├── measurement_month=2025-02/*.parquet
+        │   └── ...  (17 partitions)
+        └── metadata/
+            ├── *.metadata.json   ← snapshot history (time travel)
+            └── snap-*.avro       ← manifest files
 ```
 
-Each monthly ingestion becomes an atomic Iceberg snapshot. Silver/gold dbt models are unchanged — DuckDB reads Iceberg via `iceberg_scan()`.
+Each `table.append()` call creates an atomic Iceberg snapshot. Snapshots are immutable — a failed load can be rolled back without touching already-committed partitions. The Iceberg catalog is SQLite-backed (`warehouse/iceberg_catalog.db`), session-local, and recreated by the `init_bronze_schema` Airflow task on container restart.
 
 ---
 
 ## Airflow DAG
 
 ```
-load_aer_bronze ──────────────────────────┐
-                                          │
-download_sentinel5p                       │
-    └── process_netcdf_to_bronze          │
-            └── load_sentinel5p_to_bronze ┘
-                        │
-                 dbt_run_silver_gold
-                        │
-                    dbt_test
+init_bronze_schema   ← registers Iceberg catalog, creates DuckDB VIEW
+    ├── load_aer_bronze
+    └── download_sentinel5p
+            └── process_netcdf_to_bronze
+                    └── load_sentinel5p_to_bronze   ← PyIceberg append to MinIO
+                                │
+                         dbt_run_silver_gold
+                                │
+                            dbt_test
 ```
+
+`init_bronze_schema` gates both branches — it re-registers the SQLite Iceberg catalog and ensures `bronze.sentinel5p_raw` VIEW exists before any downstream task reads from it.
 
 `max_active_runs=1` — DuckDB is single-writer.
 
