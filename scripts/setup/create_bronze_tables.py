@@ -12,8 +12,8 @@ exported to Iceberg, then the table is replaced by the view.
 import os
 import sys
 
-import pyarrow as pa
 import duckdb
+import pyarrow as pa
 from dotenv import load_dotenv
 
 load_dotenv()
